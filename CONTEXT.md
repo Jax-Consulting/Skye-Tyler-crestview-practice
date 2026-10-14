@@ -33,6 +33,7 @@
 | Salesforce API version | 62.0 | Pin in `.forceignore` and `sfdx-project.json` |
 | Default branch | `main` | Never commit directly to `main` |
 | Feature branch prefix | `feature/IPOP-<ticket>-short-description` | e.g., `feature/IPOP-47-case-object-setup` |
+| CONTEXT.md updates branch | `feature/Practice-context-setup` | All edits to this file are committed here, never to `main`; they reach `main` by PR |
 
 ---
 
@@ -133,6 +134,8 @@ Use standard Salesforce objects (Contact, Account, Case) before proposing a cust
 ---
 
 ## How to Add a Context Entry
+
+**Where to commit it:** commit every CONTEXT.md change to the `feature/Practice-context-setup` branch, not to `main` and not to a new branch. Before editing, sync that branch with `main` so the PR merges cleanly. Changes reach `main` only through a pull request that a reviewer merges.
 
 ```
 ### [Short title — what was the lesson]
