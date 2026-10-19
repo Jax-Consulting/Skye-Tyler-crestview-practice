@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>SPIKE_Intake_Date_Lock_Proxy</fullName>
+    <active>false</active>
+    <description>THROWAWAY Build Step 1 spike (IPOP-47). Proxy for the Intake_Date__c lock: once a value is set it cannot change. Uses Subject starting SPIKE-LOCK so no real Case is affected. Deactivate after the spike.</description>
+    <errorConditionFormula>AND(
+    NOT(ISNEW()),
+    ISCHANGED(Subject),
+    BEGINS(PRIORVALUE(Subject), &quot;SPIKE-LOCK&quot;)
+)</errorConditionFormula>
+    <errorMessage>SPIKE: this value is locked once set and cannot be changed by anyone.</errorMessage>
+</ValidationRule>
