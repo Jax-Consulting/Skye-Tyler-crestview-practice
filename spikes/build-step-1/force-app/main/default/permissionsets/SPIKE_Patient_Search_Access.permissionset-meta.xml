@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>THROWAWAY Build Step 1 spike. Lets a non-admin test user run only the SPIKE patient search screen flow (no Run Flows). Delete when Build Step 1 closes. Source: IPOP-47.</description>
+    <flowAccesses>
+        <enabled>true</enabled>
+        <flow>SPIKE_SF_Patient_Search</flow>
+    </flowAccesses>
+    <hasActivationRequired>false</hasActivationRequired>
+    <label>SPIKE Patient Search Access</label>
+</PermissionSet>
