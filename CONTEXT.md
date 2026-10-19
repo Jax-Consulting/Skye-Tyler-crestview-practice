@@ -7,9 +7,25 @@
 > **How to use this file:**
 > This file records what we learned the hard way so the next session — or the next person — does not have to relearn it. It is NOT documentation of how the system works. Read it before starting any session. Add to it when something costs you more than an hour, surprises you, or settles a design argument. Never add current state (e.g., "we are on v12 of the agent") — that goes stale immediately and is worse than nothing. Use the query or the org, not this file, for current state.
 >
+> **Then read the build plan:** [`context/build-plan.md`](context/build-plan.md) holds the ordered build steps, which story belongs to which step, and what each step must prove before the next starts. It holds the sequence, not the status — status lives in Jira and the org.
+>
 > **To add an entry:** copy the template at the bottom of this file, fill it in, and commit it in the same PR as the code change that produced the lesson. Not a follow-up ticket — it never gets done.
 >
 > **Verification tags:** entries marked **[UNVERIFIED]** come from platform knowledge or planning documents and have not been proven in the dev org. Prove them in the sandbox, then remove the tag (or correct the entry).
+
+---
+
+## Where things live
+
+| What | Where |
+|------|-------|
+| Locked decisions, ADRs, lessons, open questions | This file (`CONTEXT.md`) |
+| Build step sequence, story-to-step map, dependencies, entry and exit checks | `context/build-plan.md` |
+| Running status and measured results per story | Jira, IPOP-128 to IPOP-146 under epic IPOP-47 |
+| Session-to-session notes | `context/handoff.md` |
+| Requirements source | User stories v1.2 (Jira) and the planning document |
+
+Every Jira story description begins with: "Read CONTEXT.md and context/build-plan.md before starting. This story belongs to Build Step N."
 
 ---
 
@@ -22,6 +38,7 @@
 **Salesforce edition:** Developer Edition (trainee-provisioned)
 **Go-live target:** 2 months from kickoff
 **Source of requirements:** Discovery session of Sept 15, 2026, reconciled against the SOW; user stories v1.2 (Epics A–E, IPOP-128 to IPOP-146 under epic IPOP-47).
+**Build sequence:** see `context/build-plan.md` (Build Steps 1–6).
 
 ---
 
@@ -36,6 +53,7 @@
 | Salesforce API version | 62.0 | Pin in `.forceignore` and `sfdx-project.json` |
 | Default branch | `main` | Never commit directly to `main` |
 | Feature branch prefix | `feature/IPOP-<ticket>-short-description` | e.g., `feature/IPOP-135-case-fields-status` |
+| Build plan | `context/build-plan.md` | Read after this file, before any build work |
 
 ---
 
@@ -87,7 +105,7 @@ These settle design arguments. Do not reopen without a new ADR.
 **Reasoning:** The SOW assumes a standard declarative build, and Crestview IT must be able to maintain it without a developer. A custom-coded search is a change order.
 **Impact:**
 - Patient search = native "criteria + results table": Name/DOB/Phone screen inputs → Get Records on Contact → single-select Data Table (Name, DOB, Phone, Address) → selected row carried forward. This is **not** true type-ahead across three fields; Mary and Clint must be told before UAT.
-- A spike in the sandbox must prove the refresh pattern (reactive vs Search button), what the Data Table search covers, and its 1,500-row cap against expected patient volume. **[UNVERIFIED]**
+- A spike in the sandbox (Build Step 1 in `context/build-plan.md`) must prove the refresh pattern (reactive vs Search button), what the Data Table search covers, and its 1,500-row cap against expected patient volume. **[UNVERIFIED]**
 - A custom LWC is allowed only if the spike proves native tools cannot meet the need, and then only via change order.
 - Third-party flow components are rejected (unsupported dependencies hurt IT maintainability).
 
@@ -102,6 +120,15 @@ These settle design arguments. Do not reopen without a new ADR.
 - Follow-up teams: read all Submitted-and-later Cases and patient Contacts; edit own-queue Cases (including data-entry corrections); cannot set Status to Incomplete; re-route is allowed only from the owning queue.
 - Changing Type alone does **not** re-route a Case; re-routing is an explicit owner change.
 - Intake Date cannot be edited by anyone after submission (validation rule, since FLS alone does not stop admins). **[UNVERIFIED for admins]**
+
+---
+
+### ADR-005 · The build sequence lives in a repo file; status lives in Jira
+**Date:** 2026-10-19
+**Decision:** The ordered build steps, story-to-step map, dependencies and entry/exit checks are kept in `context/build-plan.md`. Running status and measured results are kept in Jira and the org, not in the repo. Each Jira story description points to both files and names its build step.
+**Reasoning:** This file must not hold current state, so a step-by-step plan cannot live here. Orchestrate loads `CONTEXT.md` and `context/` at the start of every session, so a plan in `context/` is seen by a Build session without being pointed at it, while Jira stays the live record.
+**Impact:** Change `context/build-plan.md` only when the plan itself changes, in the same PR as the work that caused the change. A Build session treats any progress statement in the plan as a claim to check against Jira and the org. The `orchestrate/context` branch must be merged to `main` before Build Step 1 starts, because Build sessions branch from `main`.
+**Source:** IPOP-47
 
 ---
 
@@ -149,6 +176,7 @@ Use standard Salesforce objects (Contact, Account, Case) before proposing a cust
 
 ### Build
 - Declarative only (ADR-003). Any proposal to add Apex or LWC needs a new ADR and a change order.
+- Read this file and `context/build-plan.md` before starting; confirm your story's build step entry checks are met.
 - Picklist values, layouts, queue membership and routing must be editable by Crestview IT in Setup without a deployment.
 - Commit message format: `[JIRA-KEY] verb short description` — e.g., `[IPOP-135] add Intake_Date__c and status values`
 
@@ -169,7 +197,7 @@ Use standard Salesforce objects (Contact, Account, Case) before proposing a cust
 - [ ] Security model verified: logged in as Intake Coordinator, then as a follow-up team member — both behave as expected
 - [ ] Documentation updated (configuration workbook, runbook, or security documentation as the story states)
 - [ ] Deployed per the cut-over plan with a smoke test
-- [ ] CONTEXT.md updated if anything was learned the hard way
+- [ ] CONTEXT.md updated if anything was learned the hard way; `context/build-plan.md` updated only if the plan changed
 - [ ] Jira story transitioned to Done with a close-out comment stating the measured result
 
 ---
@@ -206,5 +234,5 @@ Use standard Salesforce objects (Contact, Account, Case) before proposing a cust
 
 ---
 
-*Last updated: 2026-10-16 · aligned to user stories v1.2 (Orchestrate planning session)*
-*Cite this file in every Jira story description: "Read CONTEXT.md before starting."*
+*Last updated: 2026-10-19 · aligned to user stories v1.2 and `context/build-plan.md` (Orchestrate planning session)*
+*Cite both files in every Jira story description: "Read CONTEXT.md and context/build-plan.md before starting."*
