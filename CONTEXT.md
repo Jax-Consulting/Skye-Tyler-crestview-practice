@@ -95,7 +95,7 @@ These settle design arguments. Do not reopen without a new ADR.
 **Date:** 2026-10-02
 **Decision:** Patients are modeled as standard **Contact** records. Person Accounts are explicitly off the table.
 **Reasoning:** Person Accounts must be enabled by Salesforce Support and cannot be disabled once on. Enabling them on a Developer Edition org changes the data model in ways that are hard to reverse. Contacts link to Cases natively through the `ContactId` lookup.
-**Impact:** Do not propose or prototype Person Accounts. If a future requirement genuinely needs them, open a new ADR and get Mentor approval before touching org settings. **Open:** how Contacts with no Account are shared across users (see Open Questions #1) — blocks the search story.
+**Impact:** Do not propose or prototype Person Accounts. If a future requirement genuinely needs them, open a new ADR and get Mentor approval before touching org settings. **Settled 2026-10-19:** each patient Contact gets a Household Account (ADR-006); a second user can see a patient created by another (see Platform Behavior Notes).
 
 ---
 
@@ -105,7 +105,7 @@ These settle design arguments. Do not reopen without a new ADR.
 **Reasoning:** The SOW assumes a standard declarative build, and Crestview IT must be able to maintain it without a developer. A custom-coded search is a change order.
 **Impact:**
 - Patient search = native "criteria + results table": Name/DOB/Phone screen inputs → Get Records on Contact → single-select Data Table (Name, DOB, Phone, Address) → selected row carried forward. This is **not** true type-ahead across three fields; Mary and Clint must be told before UAT.
-- A spike in the sandbox (Build Step 1 in `context/build-plan.md`) must prove the refresh pattern (reactive vs Search button), what the Data Table search covers, and its 1,500-row cap against expected patient volume. **[UNVERIFIED — hands-on test pending]** A throwaway `SPIKE_SF_Patient_Search` Screen Flow is deployed in the dev org (2026-10-19) for this test; see `spikes/build-step-1/README.md` for the steps.
+- A spike in the sandbox (Build Step 1 in `context/build-plan.md`) must prove the refresh pattern (reactive vs Search button), what the Data Table search covers, and its 1,500-row cap against expected patient volume. **Partly proven 2026-10-19:** a non-admin user (User Tester) ran the search flow from the Sales Home page and retrieved existing Contacts, including one created by another user. **[UNVERIFIED — still open]** refresh pattern, Data Table search coverage, and the 1,500-row cap. A throwaway `SPIKE_SF_Patient_Search` Screen Flow is deployed in the dev org (2026-10-19) for this test; see `spikes/build-step-1/README.md` for the steps.
 - A custom LWC is allowed only if the spike proves native tools cannot meet the need, and then only via change order.
 - Third-party flow components are rejected (unsupported dependencies hurt IT maintainability).
 
@@ -135,7 +135,7 @@ These settle design arguments. Do not reopen without a new ADR.
 **Date:** 2026-10-19
 **Decision:** each patient Contact gets its own Account (a "household" Account named after the patient), created by the intake flow when a new patient is created. Patient Contacts are never left without an Account.
 **Reasoning:** Contacts with no Account are private to their owner, which would hide patients from other coordinators and follow-up teams. A single shared default Account was the alternative; it concentrates every patient under one parent record (account data skew once it passes about 10,000 child records, slower sharing recalculation) and makes a later move to a household model harder. One Account per patient avoids both and keeps the standard data model (ADR-002).
-**Impact:** IPOP-132 (new patient) creates the Account and the Contact together. Search and reports work off Contact, not Account. Proving that a second user can see the patient is still open (needs a non-admin user). Answers Open Question 1.
+**Impact:** IPOP-132 (new patient) creates the Account and the Contact together. Search and reports work off Contact, not Account. **Proven 2026-10-19:** a second, non-admin user can see and open a patient (with its Household Account) created by another user, at today's Public Read/Write OWD on Account and Contact. Answers Open Question 1.
 **Source:** IPOP-47 (Skye's decision in the 2026-10-19 Build session)
 
 ### ADR-007 · Retire the old sample Case picklist values by deactivating them
@@ -159,7 +159,7 @@ Queue members can be assigned a record, but without a sharing rule they cannot s
 **Impact / Fix:** do routing in the flow. On submission (and on re-route) the flow sets `OwnerId` to the queue for the Type of Request, looked up by queue DeveloperName, never a hard-coded Id. Do not build a Case assignment rule for intake routing; it would never fire for flow-entered Cases.
 
 ### Contacts with no Account are private to their owner
-This would hide patients from other coordinators and from follow-up teams. **Decided 2026-10-19:** a Household Account per patient (ADR-006). Org facts on 2026-10-19: Account OWD Public Read/Write, Contact OWD Public Read/Write, 20 sample Contacts all linked to an Account. **[UNVERIFIED — second-user test pending]** The "can a second user see it" test needs a non-admin user, which Skye is creating by hand; the steps are in `spikes/build-step-1/README.md`.
+This would hide patients from other coordinators and from follow-up teams. **Decided 2026-10-19:** a Household Account per patient (ADR-006). Org facts on 2026-10-19: Account OWD Public Read/Write, Contact OWD Public Read/Write, 20 sample Contacts all linked to an Account. **Proven 2026-10-19:** Skye created `Sample McPatient` with its own Household Account; User Tester (Standard User, not the owner) found it through the search flow and opened the Contact, and `UserRecordAccess` shows Read and Edit on both records. This holds at today's Public Read/Write OWD on Account and Contact; recheck if either is tightened. A Contact with no Account was not tested; intake never creates one.
 
 ### Custom notification recipients: queue vs members
 Prove that all members of a queue receive the Urgent notification (queue as recipient vs expanding to members). **Partly proven 2026-10-19:** the Send Custom Notification action **accepts a queue Id as a recipient** without error (Flow action and Apex API both). **Delivery to members is NOT confirmed:** the Notifications API returned an empty list for the only queue member, including the user-addressed control, so the check itself is in doubt. **Proven 2026-10-19:** a second user who is a queue member but not the sender (User Tester) received the notification on the bell icon. So the intake flow can send the Urgent notification to the queue Id directly; no need to expand to members. The Notifications API check returned empty even when delivery worked, so verify on the bell icon.
@@ -237,7 +237,7 @@ Use standard Salesforce objects (Contact, Account, Case) before proposing a cust
 
 ## Open Questions (block or shape specific stories)
 
-1. **Contact visibility** (blocks IPOP-130 search): **decided 2026-10-19, Household Account per patient (ADR-006)**; second-user proof still pending.
+1. **Contact visibility** (blocks IPOP-130 search): **decided and proven 2026-10-19**, Household Account per patient (ADR-006); a second user can see the patient.
 2. **Urgent notification** (IPOP-140): confirm one trigger (assigned AND Urgent); should raising Priority to Urgent later also notify?
 3. **Coordinator patient edits** (IPOP-131): phone and address confirmed; name and DOB not stated.
 4. **Follow-up demographic corrections** (IPOP-137): may follow-up teams correct Contact demographics, and which fields?

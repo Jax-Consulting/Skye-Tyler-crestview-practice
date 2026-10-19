@@ -30,17 +30,17 @@ Run date: 2026-10-19, org `skyejaxdev-dev-ed`, API 68.0, as Skye Tyler (System A
 | Gender field | **Proven:** no standard Gender field on Contact. Custom picklist needed. | `sf sobject describe Contact` |
 | Field history | Case tracks 10 fields, Contact 0. Documented limit 20 per object. | `FieldDefinition.IsFieldHistoryTracked` |
 | Test users | Salesforce licence 2/4 used; Platform 0/6 but no Case access. Skye creates users by hand. | `UserLicense` |
-| Contact visibility | Decision: Household Account per patient (ADR-006). OWD Account and Contact both Public Read/Write today. Second-user test pending. | `EntityDefinition` sharing model |
-| Search pattern | Pending hands-on test. | `SPIKE_SF_Patient_Search` |
+| Contact visibility | **Proven 2026-10-19 (with an Account, at today's OWD).** Skye created `Sample McPatient` (Contact) with its own `Sample McPatient Household` Account, both owned by Skye. User Tester (Standard User, not the owner) found it in the search flow and opened the Contact record. `UserRecordAccess` shows User Tester has Read and Edit on both records. OWD Account and Contact are both Public Read/Write today. **Not tested:** a Contact with no Account (ADR-006 means intake never creates one), and visibility under any tighter Contact or Account sharing. | Manual test as User Tester; `UserRecordAccess`; `EntityDefinition` sharing model |
+| Search pattern | **Partly proven 2026-10-19.** Name/DOB/Phone inputs → Get Records → single-select Data Table works for a non-admin user: User Tester ran the flow from the Sales Home page and retrieved the existing sample Contacts and `Sample McPatient`. **Still open:** refresh pattern (Next/Search button vs as you type), what the Data Table search box filters, and behaviour above 1,500 matching rows. | Manual test as User Tester from `SPIKE_Patient_Search_Home` |
 
 Side finding: `customNotificationAction` with "store output automatically" fails at API 68.0 (`type mapping "SuccessMessage" is not a supported type`). Fixed in `SPIKE_SUB_Notify_Recipient` by not storing output.
 
 ## Still to do by hand (needs a person or a second user)
 
 1. ~~**Notification delivery.**~~ Done 2026-10-19 (see Results).
-2. **Contact visibility.** As the second (non-admin) user, open a Contact owned by you that has an Account. Repeat with a Contact that has no Account (create one, then delete it afterwards).
-3. **Search pattern.** Open the Sales app Home tab (as yourself or User Tester); the search flow is on the page. You can also run `SPIKE – SF – Patient Search` from Setup → Flows → Run. Record: does the result list only refresh on Next (search button) or as you type; what the Data Table search box filters (loaded rows only?); how the flow behaves with more than 1,500 matching Contacts (load test data in the dev org only if needed).
+2. ~~**Contact visibility.**~~ Done 2026-10-19 for a Contact with a Household Account (see Results). Optional: repeat with a Contact that has no Account, to confirm such Contacts are hidden from non-owners. Intake never creates one (ADR-006), so this is not blocking.
+3. **Search pattern (partly done).** Running and retrieving are proven. Still to record: open the Sales app Home tab (as yourself or User Tester); the search flow is on the page. You can also run `SPIKE – SF – Patient Search` from Setup → Flows → Run. Record: does the result list only refresh on Next (search button) or as you type; what the Data Table search box filters (loaded rows only?); how the flow behaves with more than 1,500 matching Contacts (load test data in the dev org only if needed).
 
 ## Clean-up when Build Step 1 closes
 
-First remove the Sales app home override (deploy `standard__LightningSales` without the `actionOverrides` block) so the standard home page returns. Then delete the SPIKE home page, the `SPIKE_Patient_Search_Access` permission set (unassign it first), the three SPIKE flows, the notification type, the validation rule and the SPIKE queue (destructive deploy plus queue delete).
+First remove the Sales app home override (deploy `standard__LightningSales` without the `actionOverrides` block) so the standard home page returns. Then delete the test patient (Contact `Sample McPatient` and Account `Sample McPatient Household`, created 2026-10-19 for the visibility test), the SPIKE home page, the `SPIKE_Patient_Search_Access` permission set (unassign it first), the three SPIKE flows, the notification type, the validation rule and the SPIKE queue (destructive deploy plus queue delete).
