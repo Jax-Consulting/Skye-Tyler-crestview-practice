@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>68.0</apiVersion>
+    <assignments>
+        <name>Set_Result_Count</name>
+        <label>Set Result Count</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <assignmentItems>
+            <assignToReference>varN_ResultCount</assignToReference>
+            <operator>AssignCount</operator>
+            <value><elementReference>Filter_for_Birthdate_and_Phone</elementReference></value>
+        </assignmentItems>
+        <connector><targetReference>Select_Patient</targetReference></connector>
+    </assignments>
+    <collectionProcessors>
+        <name>Filter_for_Birthdate_and_Phone</name>
+        <label>Filter for Birthdate and Phone</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <assignNextValueToReference>currentItem_Filter_for_Birthdate_and_Phone</assignNextValueToReference>
+        <collectionProcessorType>FilterCollectionProcessor</collectionProcessorType>
+        <collectionReference>Get_Contacts</collectionReference>
+        <conditionLogic>formula_evaluation</conditionLogic>
+        <connector><targetReference>Set_Result_Count</targetReference></connector>
+        <formula>AND(
+    OR(ISBLANK({!ESC_Birthdate}), {!currentItem_Filter_for_Birthdate_and_Phone.Birthdate} = {!ESC_Birthdate}),
+    OR(ISBLANK({!ESC_Phone}), CONTAINS({!currentItem_Filter_for_Birthdate_and_Phone.Phone}, {!ESC_Phone}))
+)</formula>
+    </collectionProcessors>
+    <description>THROWAWAY Build Step 1 spike (IPOP-47 / IPOP-130). Native-declarative patient search: Name, Date of Birth and Phone inputs, then Get Records on Contact (Name contains), then a Collection Filter for the optional Date of Birth and Phone, then a single-select Data Table. Used to test the search-button refresh pattern, the Data Table search bar and the row cap by hand. Not for the customer build.</description>
+    <environments>Default</environments>
+    <interviewLabel>SPIKE SF Patient Search {!$Flow.CurrentDateTime}</interviewLabel>
+    <label>SPIKE – SF – Patient Search</label>
+    <processMetadataValues>
+        <name>BuilderType</name>
+        <value><stringValue>LightningFlowBuilder</stringValue></value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>CanvasMode</name>
+        <value><stringValue>AUTO_LAYOUT_CANVAS</stringValue></value>
+    </processMetadataValues>
+    <processType>Flow</processType>
+    <recordLookups>
+        <name>Get_Contacts</name>
+        <label>Get Contacts</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <assignNullValuesIfNoRecordsFound>false</assignNullValuesIfNoRecordsFound>
+        <connector><targetReference>Filter_for_Birthdate_and_Phone</targetReference></connector>
+        <filterLogic>and</filterLogic>
+        <filters>
+            <field>Name</field>
+            <operator>Contains</operator>
+            <value><elementReference>ESC_Name</elementReference></value>
+        </filters>
+        <getFirstRecordOnly>false</getFirstRecordOnly>
+        <object>Contact</object>
+        <queriedFields>Id</queriedFields>
+        <queriedFields>Name</queriedFields>
+        <queriedFields>Birthdate</queriedFields>
+        <queriedFields>Phone</queriedFields>
+        <queriedFields>MailingStreet</queriedFields>
+        <queriedFields>MailingCity</queriedFields>
+        <sortField>Name</sortField>
+        <sortOrder>Asc</sortOrder>
+        <storeOutputAutomatically>true</storeOutputAutomatically>
+    </recordLookups>
+    <screens>
+        <name>Enter_Search_Criteria</name>
+        <label>Enter Search Criteria</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <allowBack>true</allowBack>
+        <allowFinish>true</allowFinish>
+        <allowPause>false</allowPause>
+        <connector><targetReference>Get_Contacts</targetReference></connector>
+        <fields>
+            <name>ESC_Name</name>
+            <dataType>String</dataType>
+            <fieldText>Patient name (part of first or last name)</fieldText>
+            <fieldType>InputField</fieldType>
+            <isRequired>true</isRequired>
+        </fields>
+        <fields>
+            <name>ESC_Birthdate</name>
+            <dataType>Date</dataType>
+            <fieldText>Date of birth (optional)</fieldText>
+            <fieldType>InputField</fieldType>
+            <isRequired>false</isRequired>
+        </fields>
+        <fields>
+            <name>ESC_Phone</name>
+            <dataType>String</dataType>
+            <fieldText>Phone (optional, as stored)</fieldText>
+            <fieldType>InputField</fieldType>
+            <isRequired>false</isRequired>
+        </fields>
+        <showFooter>true</showFooter>
+        <showHeader>true</showHeader>
+    </screens>
+    <screens>
+        <name>Select_Patient</name>
+        <label>Select Patient</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <allowBack>true</allowBack>
+        <allowFinish>true</allowFinish>
+        <allowPause>false</allowPause>
+        <connector><targetReference>Show_Selected_Patient</targetReference></connector>
+        <fields>
+            <name>SP_Result_Count</name>
+            <fieldText>&lt;p&gt;Matching patients: {!varN_ResultCount}&lt;/p&gt;</fieldText>
+            <fieldType>DisplayText</fieldType>
+        </fields>
+        <fields>
+            <name>SP_Patients</name>
+            <dataTypeMappings>
+                <typeName>T</typeName>
+                <typeValue>Contact</typeValue>
+            </dataTypeMappings>
+            <extensionName>flowruntime:datatable</extensionName>
+            <fieldType>ComponentInstance</fieldType>
+            <inputParameters>
+                <name>label</name>
+                <value><stringValue>Matching patients</stringValue></value>
+            </inputParameters>
+            <inputParameters>
+                <name>selectionMode</name>
+                <value><stringValue>SINGLE_SELECT</stringValue></value>
+            </inputParameters>
+            <inputParameters>
+                <name>minRowSelection</name>
+                <value><numberValue>0.0</numberValue></value>
+            </inputParameters>
+            <inputParameters>
+                <name>tableData</name>
+                <value><elementReference>Filter_for_Birthdate_and_Phone</elementReference></value>
+            </inputParameters>
+            <inputParameters>
+                <name>isShowSearchBar</name>
+                <value><booleanValue>true</booleanValue></value>
+            </inputParameters>
+            <inputParameters>
+                <name>columns</name>
+                <value><stringValue>[{"apiName":"Name","guid":"column-1","editable":false,"hasCustomHeaderLabel":false,"customHeaderLabel":"","wrapText":true,"order":0,"label":"Full Name","type":"text"},{"apiName":"Birthdate","guid":"column-2","editable":false,"hasCustomHeaderLabel":false,"customHeaderLabel":"","wrapText":true,"order":1,"label":"Birthdate","type":"date-local"},{"apiName":"Phone","guid":"column-3","editable":false,"hasCustomHeaderLabel":false,"customHeaderLabel":"","wrapText":true,"order":2,"label":"Business Phone","type":"phone"},{"apiName":"MailingStreet","guid":"column-4","editable":false,"hasCustomHeaderLabel":false,"customHeaderLabel":"","wrapText":true,"order":3,"label":"Mailing Street","type":"text"},{"apiName":"MailingCity","guid":"column-5","editable":false,"hasCustomHeaderLabel":false,"customHeaderLabel":"","wrapText":true,"order":4,"label":"Mailing City","type":"text"}]</stringValue></value>
+            </inputParameters>
+            <inputsOnNextNavToAssocScrn>UseStoredValues</inputsOnNextNavToAssocScrn>
+            <isRequired>true</isRequired>
+            <storeOutputAutomatically>true</storeOutputAutomatically>
+        </fields>
+        <showFooter>true</showFooter>
+        <showHeader>true</showHeader>
+    </screens>
+    <screens>
+        <name>Show_Selected_Patient</name>
+        <label>Show Selected Patient</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <allowBack>true</allowBack>
+        <allowFinish>true</allowFinish>
+        <allowPause>false</allowPause>
+        <fields>
+            <name>SSP_Selected</name>
+            <fieldText>&lt;p&gt;Selected patient carried forward: {!SP_Patients.firstSelectedRow.Name} (Id {!SP_Patients.firstSelectedRow.Id})&lt;/p&gt;</fieldText>
+            <fieldType>DisplayText</fieldType>
+        </fields>
+        <showFooter>true</showFooter>
+        <showHeader>true</showHeader>
+    </screens>
+    <start>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <connector><targetReference>Enter_Search_Criteria</targetReference></connector>
+    </start>
+    <status>Active</status>
+    <variables>
+        <name>currentItem_Filter_for_Birthdate_and_Phone</name>
+        <dataType>SObject</dataType>
+        <isCollection>false</isCollection>
+        <isInput>false</isInput>
+        <isOutput>false</isOutput>
+        <objectType>Contact</objectType>
+    </variables>
+    <variables>
+        <name>varN_ResultCount</name>
+        <dataType>Number</dataType>
+        <isCollection>false</isCollection>
+        <isInput>false</isInput>
+        <isOutput>false</isOutput>
+        <scale>0</scale>
+    </variables>
+</Flow>

@@ -95,7 +95,7 @@ These settle design arguments. Do not reopen without a new ADR.
 **Date:** 2026-10-02
 **Decision:** Patients are modeled as standard **Contact** records. Person Accounts are explicitly off the table.
 **Reasoning:** Person Accounts must be enabled by Salesforce Support and cannot be disabled once on. Enabling them on a Developer Edition org changes the data model in ways that are hard to reverse. Contacts link to Cases natively through the `ContactId` lookup.
-**Impact:** Do not propose or prototype Person Accounts. If a future requirement genuinely needs them, open a new ADR and get Mentor approval before touching org settings. **Open:** how Contacts with no Account are shared across users (see Open Questions #1) — blocks the search story.
+**Impact:** Do not propose or prototype Person Accounts. If a future requirement genuinely needs them, open a new ADR and get Mentor approval before touching org settings. **Settled 2026-10-19:** each patient Contact gets a Household Account (ADR-006); a second user can see a patient created by another (see Platform Behavior Notes).
 
 ---
 
@@ -105,7 +105,7 @@ These settle design arguments. Do not reopen without a new ADR.
 **Reasoning:** The SOW assumes a standard declarative build, and Crestview IT must be able to maintain it without a developer. A custom-coded search is a change order.
 **Impact:**
 - Patient search = native "criteria + results table": Name/DOB/Phone screen inputs → Get Records on Contact → single-select Data Table (Name, DOB, Phone, Address) → selected row carried forward. This is **not** true type-ahead across three fields; Mary and Clint must be told before UAT.
-- A spike in the sandbox (Build Step 1 in `context/build-plan.md`) must prove the refresh pattern (reactive vs Search button), what the Data Table search covers, and its 1,500-row cap against expected patient volume. **[UNVERIFIED]**
+- A spike in the sandbox (Build Step 1 in `context/build-plan.md`) must prove the refresh pattern (reactive vs Search button), what the Data Table search covers, and its 1,500-row cap against expected patient volume. **Partly proven 2026-10-19:** a non-admin user (User Tester) ran the search flow from the Sales Home page and retrieved existing Contacts, including one created by another user. **[UNVERIFIED — still open]** refresh pattern, Data Table search coverage, and the 1,500-row cap. A throwaway `SPIKE_SF_Patient_Search` Screen Flow is deployed in the dev org (2026-10-19) for this test; see `spikes/build-step-1/README.md` for the steps.
 - A custom LWC is allowed only if the spike proves native tools cannot meet the need, and then only via change order.
 - Third-party flow components are rejected (unsupported dependencies hurt IT maintainability).
 
@@ -119,7 +119,8 @@ These settle design arguments. Do not reopen without a new ADR.
 - Coordinators: create Case/Contact; edit Case only while Incomplete; set Status only to Incomplete or Submitted; no delete.
 - Follow-up teams: read all Submitted-and-later Cases and patient Contacts; edit own-queue Cases (including data-entry corrections); cannot set Status to Incomplete; re-route is allowed only from the owning queue.
 - Changing Type alone does **not** re-route a Case; re-routing is an explicit owner change.
-- Intake Date cannot be edited by anyone after submission (validation rule, since FLS alone does not stop admins). **[UNVERIFIED for admins]**
+- Intake Date cannot be edited by anyone after submission (validation rule, since FLS alone does not stop admins). **Proven 2026-10-19:** a lock validation rule blocks a System Administrator; a migration insert that sets the value is allowed; the first stamp on update when the prior value was blank is allowed. See Platform Behavior Notes.
+- **Org is not yet at this OWD (2026-10-19):** Case OWD is currently Public Read/Write/Transfer and Contact OWD is Public Read/Write. Moving Case to Private is Build Step 3 work.
 
 ---
 
@@ -130,6 +131,20 @@ These settle design arguments. Do not reopen without a new ADR.
 **Impact:** Change `context/build-plan.md` only when the plan itself changes, in the same PR as the work that caused the change. A Build session treats any progress statement in the plan as a claim to check against Jira and the org. The `orchestrate/context` branch must be merged to `main` before Build Step 1 starts, because Build sessions branch from `main`.
 **Source:** IPOP-47
 
+### ADR-006 · One Household Account per patient Contact
+**Date:** 2026-10-19
+**Decision:** each patient Contact gets its own Account (a "household" Account named after the patient), created by the intake flow when a new patient is created. Patient Contacts are never left without an Account.
+**Reasoning:** Contacts with no Account are private to their owner, which would hide patients from other coordinators and follow-up teams. A single shared default Account was the alternative; it concentrates every patient under one parent record (account data skew once it passes about 10,000 child records, slower sharing recalculation) and makes a later move to a household model harder. One Account per patient avoids both and keeps the standard data model (ADR-002).
+**Impact:** IPOP-132 (new patient) creates the Account and the Contact together. Search and reports work off Contact, not Account. **Proven 2026-10-19:** a second, non-admin user can see and open a patient (with its Household Account) created by another user, at today's Public Read/Write OWD on Account and Contact. Answers Open Question 1.
+**Source:** IPOP-47 (Skye's decision in the 2026-10-19 Build session)
+
+### ADR-007 · Retire the old sample Case picklist values by deactivating them
+**Date:** 2026-10-19
+**Decision:** in Build Step 2, Case Status, Type and Priority hold exactly the D7 / Type / Priority values. The org's sample values (Status New/Working/Escalated/Closed; Type Mechanical/Electrical/…; old Priority values) are **deactivated**, not deleted, so the 26 sample Cases keep their history.
+**Reasoning:** deleting a used picklist value forces a replace on existing records; deactivating keeps the data and removes the value from new entry.
+**Impact:** Build Step 2 work. Recorded here only; nothing was changed in this session.
+**Source:** IPOP-47 (Skye's decision in the 2026-10-19 Build session)
+
 ---
 
 ## Platform Behavior Notes
@@ -137,17 +152,35 @@ These settle design arguments. Do not reopen without a new ADR.
 ### Queue membership does not grant record access by default — you need the sharing rule too
 Queue members can be assigned a record, but without a sharing rule they cannot see records assigned to the queue unless they own them. Create one criteria-based sharing rule per queue as needed. Test this explicitly; it is the most common misconfiguration on queue-based setups.
 
-### Assignment rules only fire on Case insert, not update
-Routing happens at **submission**, and an Incomplete Case is submitted by an **update**, so the assignment rule may not fire for it. Prove in the sandbox how an Incomplete→Submitted Case gets routed (for example, flow-based owner assignment). Also applies to re-routes: set the new queue explicitly. **[UNVERIFIED for the Incomplete→Submitted path]**
+### Assignment rules do not fire for Flow-created or Flow-updated Cases — route in the flow
+**Date:** 2026-10-19 · **Source:** IPOP-47 (Build Step 1 spike, `spikes/build-step-1/scripts/01_routing_spike.apex`, rolled back)
+**Observation:** Against the org's active Case assignment rule, with a matching Account: a Case created by Flow Create Records stayed with the running user; a plain insert stayed; a plain update stayed. The rule fired only when the assignment-rule header was passed explicitly (on insert **and** on update). Flow has no option to pass that header, so neither the intake flow's insert nor the Incomplete→Submitted update will trigger an assignment rule.
+**Also surprised us:** the "use default rule" header (`useDefaultRule = true`) did **not** fire the active rule in this org; only passing the rule's Id did. Do not rely on the default-rule checkbox behaviour when testing.
+**Impact / Fix:** do routing in the flow. On submission (and on re-route) the flow sets `OwnerId` to the queue for the Type of Request, looked up by queue DeveloperName, never a hard-coded Id. Do not build a Case assignment rule for intake routing; it would never fire for flow-entered Cases.
 
 ### Contacts with no Account are private to their owner
-This would hide patients from other coordinators and from follow-up teams. Decide and prove how patient Contacts are shared (for example, a single default Account for all patients) before building search. **[UNVERIFIED in this org]**
+This would hide patients from other coordinators and from follow-up teams. **Decided 2026-10-19:** a Household Account per patient (ADR-006). Org facts on 2026-10-19: Account OWD Public Read/Write, Contact OWD Public Read/Write, 20 sample Contacts all linked to an Account. **Proven 2026-10-19:** Skye created `Sample McPatient` with its own Household Account; User Tester (Standard User, not the owner) found it through the search flow and opened the Contact, and `UserRecordAccess` shows Read and Edit on both records. This holds at today's Public Read/Write OWD on Account and Contact; recheck if either is tightened. A Contact with no Account was not tested; intake never creates one.
 
 ### Custom notification recipients: queue vs members
-Prove that all members of a queue receive the Urgent notification (queue as recipient vs expanding to members). **[UNVERIFIED]**
+Prove that all members of a queue receive the Urgent notification (queue as recipient vs expanding to members). **Partly proven 2026-10-19:** the Send Custom Notification action **accepts a queue Id as a recipient** without error (Flow action and Apex API both). **Delivery to members is NOT confirmed:** the Notifications API returned an empty list for the only queue member, including the user-addressed control, so the check itself is in doubt. **Proven 2026-10-19:** a second user who is a queue member but not the sender (User Tester) received the notification on the bell icon. So the intake flow can send the Urgent notification to the queue Id directly; no need to expand to members. The Notifications API check returned empty even when delivery worked, so verify on the bell icon.
+
+### Send Custom Notification action fails if you store its output automatically
+**Date:** 2026-10-19 · **Source:** IPOP-47 (Build Step 1 spike)
+**Observation:** At API 68.0, a Flow action call to `customNotificationAction` with "store output automatically" on fails every time with a generic "unhandled fault". The real error (visible only with Workflow logging at FINER) is: `In Apex action "Send Urgent Notification", type mapping "SuccessMessage" is not a supported type.`
+**Impact / Fix:** in Flow Builder leave the action's output unstored (the action has no useful output). If a flow fails with only the generic fault, raise Workflow logging to FINER before guessing.
 
 ### Field history limits
-Check the current per-object field history tracking limit before choosing the tracked Case and Contact fields. **[UNVERIFIED]**
+Check the current per-object field history tracking limit before choosing the tracked Case and Contact fields. **Checked 2026-10-19:** Case already tracks 10 standard fields (ContactId, AssetId, Type, Status, Reason, Origin, Subject, Priority, Description, OwnerId); Contact tracks none. Salesforce documents a standard limit of 20 fields per object, so Case has about 10 slots left; prune unused tracked fields (e.g. AssetId, Reason) if IPOP-143 needs more. **[Limit value is documented, not tested in this org]**
+
+### Contact has no standard Gender field in this org
+**Date:** 2026-10-19 · **Source:** IPOP-47 (Build Step 1 spike)
+**Observation:** describing Contact shows `Birthdate` (Date) but no Gender or pronoun field.
+**Impact / Fix:** IPOP-128 needs a custom picklist (a global value set, so values stay admin-editable) on Contact.
+
+### Test users: only 2 full licences are usable
+**Date:** 2026-10-19 · **Source:** IPOP-47 (Build Step 1 spike)
+**Observation:** Salesforce licence 2 of 4 used (2 free). Salesforce Platform licence 0 of 6 used, but Platform licences do not include Case access, so they cannot stand in for coordinators or follow-up teams. Users can be deactivated but never deleted.
+**Impact / Fix:** the org cannot hold separate users for coordinator plus three teams at once. Decision (2026-10-19): Skye creates test users by hand; reuse a user across personas by swapping permission sets and queue membership between test runs.
 
 ### Standard objects first: use the standard data model
 Use standard Salesforce objects (Contact, Account, Case) before proposing a custom object. When in doubt, check the Salesforce documentation before proposing a custom solution.
@@ -162,8 +195,8 @@ Use standard Salesforce objects (Contact, Account, Case) before proposing a cust
 **Tell:** Zero results, no error. A visibility problem, not a query logic problem.
 
 ### Symptom: Case is created but not assigned to any queue
-**Likely cause:** The assignment rule is not Active, or (for an Incomplete Case submitted later) the rule did not fire because the Case was updated, not inserted.
-**Fix:** Confirm the rule is Active in Setup → Case Assignment Rules, and confirm how routing is triggered on submission.
+**Likely cause:** Routing relies on a Case assignment rule. Assignment rules do not fire for Cases created or updated by Flow (proven 2026-10-19), so the intake flow must set the owner itself.
+**Fix:** Check the flow's submission path sets `OwnerId` to the queue for the Type of Request, and that the queue DeveloperName it looks up exists.
 **Tell:** `OwnerId` is the running user or the Intake Coordinators queue instead of a team queue.
 
 ### Symptom: Orchestrate returns empty results or behaves as if metadata doesn't exist
@@ -204,7 +237,7 @@ Use standard Salesforce objects (Contact, Account, Case) before proposing a cust
 
 ## Open Questions (block or shape specific stories)
 
-1. **Contact visibility** (blocks IPOP-130 search): how patient Contacts are shared across coordinators and follow-up teams.
+1. **Contact visibility** (blocks IPOP-130 search): **decided and proven 2026-10-19**, Household Account per patient (ADR-006); a second user can see the patient.
 2. **Urgent notification** (IPOP-140): confirm one trigger (assigned AND Urgent); should raising Priority to Urgent later also notify?
 3. **Coordinator patient edits** (IPOP-131): phone and address confirmed; name and DOB not stated.
 4. **Follow-up demographic corrections** (IPOP-137): may follow-up teams correct Contact demographics, and which fields?
@@ -234,5 +267,5 @@ Use standard Salesforce objects (Contact, Account, Case) before proposing a cust
 
 ---
 
-*Last updated: 2026-10-19 · aligned to user stories v1.2 and `context/build-plan.md` (Orchestrate planning session)*
+*Last updated: 2026-10-19 · Build Step 1 spike findings added (Orchestrate Build session)*
 *Cite both files in every Jira story description: "Read CONTEXT.md and context/build-plan.md before starting."*
